@@ -22,32 +22,10 @@ use sliceslice::MemchrSearcher;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-#[cfg(any(target_arch = "x86", target_arch = "x86_64", target_arch = "wasm32"))]
-use std::sync::LazyLock;
 
 const LESS: u8 = 0b001;
 const GREATER: u8 = 0b010;
 const EQUAL: u8 = 0b100;
-
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-static USE_AVX2: LazyLock<bool> = LazyLock::new(|| {
-    use std::env;
-
-    const NO_VALUES: &[&str] = &["0", "no", "false"];
-
-    let use_avx2 = env::var("WIREFILTER_USE_AVX2").unwrap_or_default();
-    is_x86_feature_detected!("avx2") && !NO_VALUES.contains(&use_avx2.as_str())
-});
-
-#[cfg(target_arch = "wasm32")]
-static USE_SIMD128: LazyLock<bool> = LazyLock::new(|| {
-    use std::env;
-
-    const NO_VALUES: &[&str] = &["0", "no", "false"];
-
-    let use_simd128 = env::var("WIREFILTER_USE_SIMD128").unwrap_or_default();
-    !NO_VALUES.contains(&use_simd128.as_str())
-});
 
 lex_enum!(
     /// OrderingOp is an operator for an ordering [`ComparisonOpExpr`].
@@ -555,135 +533,6 @@ impl Expr for ComparisonExpr {
 
                 if let [byte] = *bytes {
                     return search!(MemchrSearcher::new(byte));
-                }
-
-                #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-                if *USE_AVX2 {
-                    use rand::{Rng, rng};
-                    use sliceslice::x86::*;
-
-                    struct ArraySearcher<const N: usize>(Avx2Searcher<[u8; N]>);
-
-                    impl<const N: usize, U> Compare<U> for ArraySearcher<N> {
-                        #[inline]
-                        fn compare<'e>(
-                            &self,
-                            value: &LhsValue<'e>,
-                            _: &'e ExecutionContext<'e, U>,
-                        ) -> bool {
-                            unsafe { self.0.search_in(cast_value!(value, Bytes)) }
-                        }
-                    }
-
-                    struct BoxSearcher(Avx2Searcher<Box<[u8]>>);
-
-                    impl<U> Compare<U> for BoxSearcher {
-                        #[inline]
-                        fn compare<'e>(
-                            &self,
-                            value: &LhsValue<'e>,
-                            _: &'e ExecutionContext<'e, U>,
-                        ) -> bool {
-                            unsafe { self.0.search_in(cast_value!(value, Bytes)) }
-                        }
-                    }
-
-                    fn slice_to_array<const N: usize>(slice: &[u8]) -> [u8; N] {
-                        let mut array = [0u8; N];
-                        array.copy_from_slice(slice);
-                        array
-                    }
-
-                    let position = rng().random_range(1..bytes.len());
-                    return unsafe {
-                        match bytes.len() {
-                            2 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<2>(&bytes),
-                                position
-                            ))),
-                            3 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<3>(&bytes),
-                                position
-                            ))),
-                            4 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<4>(&bytes),
-                                position
-                            ))),
-                            5 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<5>(&bytes),
-                                position
-                            ))),
-                            6 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<6>(&bytes),
-                                position
-                            ))),
-                            7 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<7>(&bytes),
-                                position
-                            ))),
-                            8 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<8>(&bytes),
-                                position
-                            ))),
-                            9 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<9>(&bytes),
-                                position
-                            ))),
-                            10 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<10>(&bytes),
-                                position
-                            ))),
-                            11 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<11>(&bytes),
-                                position
-                            ))),
-                            12 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<12>(&bytes),
-                                position
-                            ))),
-                            13 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<13>(&bytes),
-                                position
-                            ))),
-                            14 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<14>(&bytes),
-                                position
-                            ))),
-                            15 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<15>(&bytes),
-                                position
-                            ))),
-                            16 => search!(ArraySearcher(Avx2Searcher::with_position(
-                                slice_to_array::<16>(&bytes),
-                                position
-                            ))),
-                            _ => search!(BoxSearcher(Avx2Searcher::with_position(bytes, position))),
-                        }
-                    };
-                }
-                #[cfg(target_arch = "wasm32")]
-                if *USE_SIMD128 {
-                    use rand::{Rng, rng};
-                    use sliceslice::wasm32::*;
-
-                    struct WasmSearcher(Wasm32Searcher<Box<[u8]>>);
-
-                    impl<U> Compare<U> for WasmSearcher {
-                        #[inline]
-                        fn compare<'e>(
-                            &self,
-                            value: &LhsValue<'e>,
-                            _: &'e ExecutionContext<'e, U>,
-                        ) -> bool {
-                            unsafe { self.0.search_in(cast_value!(value, Bytes)) }
-                        }
-                    }
-
-                    let position = rng().random_range(1..bytes.len());
-
-                    return unsafe {
-                        search!(WasmSearcher(Wasm32Searcher::with_position(bytes, position)))
-                    };
                 }
 
                 search!(TwoWaySearcher::new(bytes))
