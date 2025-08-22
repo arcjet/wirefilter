@@ -25,7 +25,6 @@ wirefilter.workspace = true
 
 [dev-dependencies]
 indoc.workspace = true
-regex-automata.workspace = true
 
 [build-dependencies]
 cbindgen = "0.28"

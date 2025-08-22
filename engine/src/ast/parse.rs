@@ -99,12 +99,6 @@ impl Display for ParseError<'_> {
 /// Parser settings.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParserSettings {
-    /// Approximate size of the cache used by the DFA of a regex.
-    /// Default: 10MB
-    pub regex_dfa_size_limit: usize,
-    /// Approximate size limit of the compiled regular expression.
-    /// Default: 2MB
-    pub regex_compiled_size_limit: usize,
     /// Maximum number of star metacharacters allowed in a wildcard.
     /// Default: unlimited
     pub wildcard_star_limit: usize,
@@ -114,10 +108,6 @@ impl Default for ParserSettings {
     #[inline]
     fn default() -> Self {
         Self {
-            // Default value extracted from the regex crate.
-            regex_compiled_size_limit: 10 * (1 << 20),
-            // Default value extracted from the regex crate.
-            regex_dfa_size_limit: 2 * (1 << 20),
             wildcard_star_limit: usize::MAX,
         }
     }
@@ -174,30 +164,6 @@ impl<'s> FilterParser<'s> {
     #[inline]
     pub fn settings(&self) -> &ParserSettings {
         &self.settings
-    }
-
-    /// Set the approximate size limit of the compiled regular expression.
-    #[inline]
-    pub fn regex_set_compiled_size_limit(&mut self, regex_compiled_size_limit: usize) {
-        self.settings.regex_compiled_size_limit = regex_compiled_size_limit;
-    }
-
-    /// Get the approximate size limit of the compiled regular expression.
-    #[inline]
-    pub fn regex_get_compiled_size_limit(&self) -> usize {
-        self.settings.regex_compiled_size_limit
-    }
-
-    /// Set the approximate size of the cache used by the DFA of a regex.
-    #[inline]
-    pub fn regex_set_dfa_size_limit(&mut self, regex_dfa_size_limit: usize) {
-        self.settings.regex_dfa_size_limit = regex_dfa_size_limit;
-    }
-
-    /// Get the approximate size of the cache used by the DFA of a regex.
-    #[inline]
-    pub fn regex_get_dfa_size_limit(&self) -> usize {
-        self.settings.regex_dfa_size_limit
     }
 
     /// Set the maximum number of star metacharacters allowed in a wildcard.

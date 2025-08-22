@@ -536,7 +536,6 @@ mod tests {
             FunctionArgKind, FunctionArgKindMismatchError, FunctionArgs, SimpleFunctionDefinition,
             SimpleFunctionImpl, SimpleFunctionOptParam, SimpleFunctionParam,
         },
-        rhs_types::{Bytes, BytesFormat},
         scheme::{FieldIndex, IndexAccessError, Scheme},
         types::{RhsValues, Type, TypeMismatchError},
     };
@@ -554,10 +553,6 @@ mod tests {
             Err(Type::Array(ref arr)) if arr.get_type() == Type::Bool => None,
             _ => unreachable!(),
         }
-    }
-
-    fn regex_replace<'a>(args: FunctionArgs<'_, 'a>) -> Option<LhsValue<'a>> {
-        args.next()?.ok()
     }
 
     fn lower_function<'a>(args: FunctionArgs<'_, 'a>) -> Option<LhsValue<'a>> {
@@ -645,30 +640,6 @@ mod tests {
                     opt_params: vec![],
                     return_type: Type::Bytes,
                     implementation: SimpleFunctionImpl::new(lower_function),
-                },
-            )
-            .unwrap();
-        builder
-            .add_function(
-                "regex_replace",
-                SimpleFunctionDefinition {
-                    params: vec![
-                        SimpleFunctionParam {
-                            arg_kind: FunctionArgKind::Field,
-                            val_type: Type::Bytes,
-                        },
-                        SimpleFunctionParam {
-                            arg_kind: FunctionArgKind::Literal,
-                            val_type: Type::Bytes,
-                        },
-                        SimpleFunctionParam {
-                            arg_kind: FunctionArgKind::Literal,
-                            val_type: Type::Bytes,
-                        },
-                    ],
-                    opt_params: vec![],
-                    return_type: Type::Bool,
-                    implementation: SimpleFunctionImpl::new(regex_replace),
                 },
             )
             .unwrap();
@@ -1250,112 +1221,6 @@ mod tests {
                     }
                 ]
             }
-        );
-    }
-
-    #[test]
-    fn test_lex_function_call_raw_string() {
-        let expr = assert_ok!(
-            FilterParser::new(&SCHEME).lex_as("regex_replace(http.host, r\"this is a r##raw## string\", r\"this is a new r##raw## string\") eq \"test\""),
-            FunctionCallExpr {
-                function: SCHEME.get_function("regex_replace").unwrap().to_owned(),
-                args: vec![
-                    FunctionCallArgExpr::IndexExpr(IndexExpr {
-                        identifier: IdentifierExpr::Field(SCHEME.get_field("http.host").unwrap().to_owned()),
-                        indexes: vec![],
-                    }),
-                    FunctionCallArgExpr::Literal(RhsValue::Bytes(Bytes::new("this is a r##raw## string".as_bytes(), BytesFormat::Raw(0)))),
-                    FunctionCallArgExpr::Literal(RhsValue::Bytes(Bytes::new("this is a new r##raw## string".as_bytes(), BytesFormat::Raw(0))))
-                ],
-                context: None,
-            },
-            " eq \"test\""
-        );
-
-        assert_eq!(expr.return_type(), Type::Bool);
-        assert_eq!(expr.get_type(), Type::Bool);
-
-        assert_json!(
-            expr,
-            {
-                "name": "regex_replace",
-                "args": [
-                    {
-                        "kind": "IndexExpr",
-                        "value": "http.host"
-                    },
-                    {
-                        "kind": "Literal",
-                        "value": "this is a r##raw## string"
-                    },
-                    {
-                        "kind": "Literal",
-                        "value": "this is a new r##raw## string"
-                    }
-                ]
-            }
-        );
-
-        let expr = assert_ok!(
-            FilterParser::new(&SCHEME).lex_as("regex_replace(http.host, r###\"this is a r##\"raw\"## string\"###, r###\"this is a new r##\"raw\"## string\"###) eq \"test\""),
-            FunctionCallExpr {
-                function: SCHEME.get_function("regex_replace").unwrap().to_owned(),
-                args: vec![
-                    FunctionCallArgExpr::IndexExpr(IndexExpr {
-                        identifier: IdentifierExpr::Field(SCHEME.get_field("http.host").unwrap().to_owned()),
-                        indexes: vec![],
-                    }),
-                    FunctionCallArgExpr::Literal(RhsValue::Bytes(Bytes::new("this is a r##\"raw\"## string".as_bytes(), BytesFormat::Raw(3)))),
-                    FunctionCallArgExpr::Literal(RhsValue::Bytes(Bytes::new("this is a new r##\"raw\"## string".as_bytes(), BytesFormat::Raw(3))))
-                ],
-                context: None,
-            },
-            " eq \"test\""
-        );
-
-        assert_eq!(expr.return_type(), Type::Bool);
-        assert_eq!(expr.get_type(), Type::Bool);
-
-        assert_json!(
-            expr,
-            {
-                "name": "regex_replace",
-                "args": [
-                    {
-                        "kind": "IndexExpr",
-                        "value": "http.host"
-                    },
-                    {
-                        "kind": "Literal",
-                        "value": "this is a r##\"raw\"## string"
-                    },
-                    {
-                        "kind": "Literal",
-                        "value": "this is a new r##\"raw\"## string"
-                    }
-                ]
-            }
-        );
-
-        assert_err!(
-            FilterParser::new(&SCHEME)
-                .lex_as::<FunctionCallExpr>("regex_replace(http.host, r#\"a\", \"b\") eq \"c\""),
-            LexErrorKind::MissingEndingQuote {},
-            "#\"a\", \"b\") eq \"c\""
-        );
-
-        assert_err!(
-            FilterParser::new(&SCHEME)
-                .lex_as::<FunctionCallExpr>("regex_replace(http.host, r\"a\"#, \"b\") eq \"c\""),
-            LexErrorKind::ExpectedLiteral(","),
-            "#, \"b\") eq \"c\""
-        );
-
-        assert_err!(
-            FilterParser::new(&SCHEME)
-                .lex_as::<FunctionCallExpr>("regex_replace(http.host, r##\"a\"#, \"b\") eq \"c\""),
-            LexErrorKind::MissingEndingQuote {},
-            "##\"a\"#, \"b\") eq \"c\""
         );
     }
 

@@ -1,6 +1,6 @@
 use crate::{
     functions::{FunctionArgInvalidConstantError, FunctionArgKindMismatchError},
-    rhs_types::{RegexError, WildcardError},
+    rhs_types::WildcardError,
     scheme::{IndexAccessError, UnknownFieldError, UnknownFunctionError},
     types::{Type, TypeMismatchError},
 };
@@ -33,10 +33,6 @@ pub enum LexErrorKind {
     /// IPv6 address
     #[error("{0}")]
     ParseNetwork(#[source] NetworkParseError),
-
-    /// Expected the next token to be a regular expression
-    #[error("{0}")]
-    ParseRegex(#[source] RegexError),
 
     /// Expected the next token to be a wildcard expression
     #[error("{0}")]

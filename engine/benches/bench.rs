@@ -185,22 +185,6 @@ fn bench_string_comparisons(c: &mut Criterion) {
     }.run(c)
 }
 
-fn bench_string_matches(c: &mut Criterion) {
-    FieldBench {
-        field: "http.user_agent",
-        functions: &[],
-        filters: &[
-            r#"http.user_agent ~ "(?i)googlebot/\d+\.\d+""#,
-            r#"http.user_agent ~ "Googlebot""#,
-            r#"http.user_agent contains "Googlebot""#
-        ],
-        values: &[
-            "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; Googlebot/2.1; +http://www.google.com/bot.html) Safari/537.36",
-            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36"
-        ]
-    }.run(c)
-}
-
 fn bench_string_function_comparison(c: &mut Criterion) {
     FieldBench {
         field: "http.host",
@@ -246,7 +230,6 @@ criterion_group! {
         bench_ip_comparisons,
         bench_int_comparisons,
         bench_string_comparisons,
-        bench_string_matches,
         bench_string_function_comparison,
 }
 

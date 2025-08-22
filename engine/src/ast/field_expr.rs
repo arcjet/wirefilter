@@ -11,7 +11,7 @@ use crate::{
     filter::CompiledExpr,
     lex::{Lex, LexErrorKind, LexResult, LexWith, expect, skip_space, span},
     range_set::RangeSet,
-    rhs_types::{Bytes, ExplicitIpRange, ListName, Regex, Wildcard},
+    rhs_types::{Bytes, ExplicitIpRange, ListName, Wildcard},
     scheme::{Field, Identifier, List},
     searcher::{EmptySearcher, TwoWaySearcher},
     strict_partial_ord::StrictPartialOrd,
@@ -80,7 +80,6 @@ lex_enum!(
 
 lex_enum!(BytesOp {
     "contains" => Contains,
-    "~" | "matches" => Matches,
     "wildcard" => Wildcard,
     "strict wildcard" => StrictWildcard,
 });
@@ -127,10 +126,6 @@ pub enum ComparisonOpExpr {
     /// "contains" comparison
     #[serde(serialize_with = "serialize_contains")]
     Contains(Bytes),
-
-    /// "matches / ~" comparison
-    #[serde(serialize_with = "serialize_matches")]
-    Matches(Regex),
 
     /// "wildcard" comparison
     #[serde(serialize_with = "serialize_wildcard")]
@@ -181,10 +176,6 @@ fn serialize_is_true<S: Serializer>(ser: S) -> Result<S::Ok, S::Error> {
 
 fn serialize_contains<S: Serializer>(rhs: &Bytes, ser: S) -> Result<S::Ok, S::Error> {
     serialize_op_rhs("Contains", rhs, ser)
-}
-
-fn serialize_matches<S: Serializer>(rhs: &Regex, ser: S) -> Result<S::Ok, S::Error> {
-    serialize_op_rhs("Matches", rhs, ser)
 }
 
 fn serialize_wildcard<S: Serializer>(rhs: &Wildcard<false>, ser: S) -> Result<S::Ok, S::Error> {
@@ -352,10 +343,6 @@ impl ComparisonExpr {
                     BytesOp::Contains => {
                         let (bytes, input) = Bytes::lex(input)?;
                         (ComparisonOpExpr::Contains(bytes), input)
-                    }
-                    BytesOp::Matches => {
-                        let (regex, input) = Regex::lex_with(input, parser)?;
-                        (ComparisonOpExpr::Matches(regex), input)
                     }
                     BytesOp::Wildcard => {
                         let (wildcard, input) = Wildcard::lex_with(input, parser)?;
@@ -537,7 +524,6 @@ impl Expr for ComparisonExpr {
 
                 search!(TwoWaySearcher::new(bytes))
             }
-            ComparisonOpExpr::Matches(regex) => lhs.compile_with(compiler, false, regex),
             ComparisonOpExpr::Wildcard(wildcard) => lhs.compile_with(compiler, false, wildcard),
             ComparisonOpExpr::StrictWildcard(wildcard) => {
                 lhs.compile_with(compiler, false, wildcard)
@@ -661,7 +647,7 @@ mod tests {
         },
         lhs_types::{Array, Map},
         list_matcher::{ListDefinition, ListMatcher},
-        rhs_types::{IpRange, RegexFormat},
+        rhs_types::IpRange,
         scheme::{FieldIndex, IndexAccessError, Scheme},
         types::ExpectedType,
     };
@@ -2651,38 +2637,6 @@ mod tests {
         assert_eq!(expr.execute_one(ctx), true);
 
         ctx.set_field_value(field("http.host"), "cd").unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
-
-        // Matches operator
-        let parser = FilterParser::new(&SCHEME);
-        let r = Regex::new("a.b", RegexFormat::Literal, parser.settings()).unwrap();
-        let expr = assert_ok!(
-            parser.lex_as("http.host matches r###\"a.b\"###"),
-            ComparisonExpr {
-                lhs: IndexExpr {
-                    identifier: IdentifierExpr::Field(field("http.host").to_owned()),
-                    indexes: vec![],
-                },
-                op: ComparisonOpExpr::Matches(r),
-            }
-        );
-
-        assert_json!(
-            expr,
-            {
-                "lhs": "http.host",
-                "op": "Matches",
-                "rhs": "a.b",
-            }
-        );
-
-        let expr = expr.compile();
-        let ctx = &mut ExecutionContext::new(&SCHEME);
-
-        ctx.set_field_value(field("http.host"), "axb").unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
-
-        ctx.set_field_value(field("http.host"), "axc").unwrap();
         assert_eq!(expr.execute_one(ctx), false);
 
         // Wildcard operator

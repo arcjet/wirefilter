@@ -830,7 +830,6 @@ pub extern "C" fn wirefilter_get_version() -> StaticRustAllocatedString {
 #[allow(clippy::bool_assert_comparison)]
 mod ffi_test {
     use super::*;
-    use regex_automata::meta::Regex;
     use serde_json::json;
     use std::ffi::CStr;
 
@@ -1086,7 +1085,7 @@ mod ffi_test {
 
             assert_eq!(
                 match_filter(
-                    r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && str2 ~ "yo\d+" && map2["key"] == "value""#,
+                    r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && map2["key"] == "value""#,
                     &scheme,
                     &exec_context
                 ),
@@ -1124,13 +1123,13 @@ mod ffi_test {
         {
             let filter1 = parse_filter(
                 &scheme,
-                r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && str2 ~ "yo\d+" && map1["key"] == 42"#,
+                r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && map1["key"] == 42"#,
             ).ast
             .unwrap();
 
             let filter2 = parse_filter(
                 &scheme,
-                r#"num1 >     41 && num2 == 1337 &&    ip1 != 192.168.0.1 and str2 ~ "yo\d+"    && map1["key"] == 42   "#,
+                r#"num1 >     41 && num2 == 1337 &&    ip1 != 192.168.0.1    && map1["key"] == 42   "#,
             ).ast
             .unwrap();
 
@@ -1157,21 +1156,13 @@ mod ffi_test {
     }
 
     #[test]
-    fn get_version() {
-        let version = wirefilter_get_version();
-        let re = Regex::new(r"(?-u)^\d+\.\d+\.\d+$").unwrap();
-
-        assert!(re.is_match(std::str::from_utf8(version.as_bytes()).unwrap()));
-    }
-
-    #[test]
     fn filter_uses() {
         let scheme = create_scheme();
 
         {
             let filter = parse_filter(
                 &scheme,
-                r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && str2 ~ "yo\d+" && map1["key"] == 42"#,
+                r#"num1 > 41 && num2 == 1337 && ip1 != 192.168.0.1 && map1["key"] == 42"#,
             ).ast
             .unwrap();
 
@@ -1190,7 +1181,7 @@ mod ffi_test {
             let field = "str2";
             assert_eq!(
                 wirefilter_filter_uses(&filter, field.as_ptr().cast(), field.len()),
-                UsingResult::USED
+                UsingResult::UNUSED
             );
 
             let field = "str1";

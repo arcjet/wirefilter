@@ -560,19 +560,6 @@ mod test {
             &hashes.as_str()[1..]
         );
 
-        // Test regex escapes remain the same
-        assert_ok!(
-            Bytes::lex(r#"r".\d\D\pA\p{Greek}\PA\P{Greek}[xyz][^xyz][a-z][[:alpha:]][[:^alpha:]][x[^xyz]][a-y&&xyz][0-9&&[^4]][0-9--4][a-g~~b-h][\[\]]""#),
-            Bytes::new(r#".\d\D\pA\p{Greek}\PA\P{Greek}[xyz][^xyz][a-z][[:alpha:]][[:^alpha:]][x[^xyz]][a-y&&xyz][0-9&&[^4]][0-9--4][a-g~~b-h][\[\]]"#.as_bytes(), BytesFormat::Raw(0))
-        );
-        assert_ok!(
-            Bytes::lex(r##"r#"\*\a\f\t\n\r\v\123\x7F\x{10FFFF}\u007F\u{7F}\U0000007F\U{7F}"#"##),
-            Bytes::new(
-                r#"\*\a\f\t\n\r\v\123\x7F\x{10FFFF}\u007F\u{7F}\U0000007F\U{7F}"#.as_bytes(),
-                BytesFormat::Raw(1)
-            )
-        );
-
         // Invalid character after 'r' or '#'
         assert_err!(Bytes::lex("r"), LexErrorKind::ExpectedName("\" or #"), "");
         assert_err!(

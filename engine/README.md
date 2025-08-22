@@ -25,7 +25,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse a Wireshark-like expression into an AST.
     let ast = scheme.parse(r#"
         http.method != "POST" &&
-        not http.ua matches "(googlebot|facebook)" &&
         port in {80 443}
     "#)?;
 
