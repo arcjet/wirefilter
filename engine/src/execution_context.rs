@@ -645,3 +645,62 @@ fn test_clear() {
     assert_eq!(ctx.get_field_value(bool_field), None);
     assert_eq!(ctx.get_field_value(ip_field), None);
 }
+
+#[test]
+fn test_unresolvable_function() {
+    use crate::{
+        SchemeBuilder,
+        FunctionArgs, FunctionDefinition, FunctionDefinitionContext,
+        FunctionParam, FunctionParamError, LhsValue, ParserSettings, Type,
+    };
+
+    /// A function which causes a Filter expression to never resolve
+    #[derive(Debug, Default)]
+    pub struct NeverFunction {}
+
+    impl FunctionDefinition for NeverFunction {
+        fn check_param(
+            &self,
+            _: &ParserSettings,
+            _: &mut dyn ExactSizeIterator<Item = FunctionParam<'_>>,
+            _: &FunctionParam<'_>,
+            _: Option<&mut FunctionDefinitionContext>,
+        ) -> Result<(), FunctionParamError> {
+            Ok(())
+        }
+
+        fn return_type(
+            &self,
+            _: &mut dyn ExactSizeIterator<Item = FunctionParam<'_>>,
+            _: Option<&FunctionDefinitionContext>,
+        ) -> Type {
+            Type::Bool
+        }
+
+        fn arg_count(&self) -> (usize, Option<usize>) {
+            (0, None)
+        }
+
+        fn compile<'s>(
+            &'s self,
+            _: &mut dyn ExactSizeIterator<Item = FunctionParam<'_>>,
+            _: Option<FunctionDefinitionContext>,
+        ) -> Box<dyn for<'i, 'a> Fn(FunctionArgs<'i, 'a>) -> Option<LhsValue<'a>> + Sync + Send + 'static>
+        {
+            Box::new(|_| { None })
+        }
+    }
+
+    let mut builder = SchemeBuilder::new();
+
+    builder
+        .add_function("never", NeverFunction::default())
+        .unwrap();
+
+    let scheme = builder.build();
+
+    let ctx = ExecutionContext::<'_, ()>::new(&scheme);
+
+    let res = scheme.parse("never()").unwrap().compile().execute(&ctx);
+    assert_eq!(res, Ok(Err(Type::Bool)))
+}
