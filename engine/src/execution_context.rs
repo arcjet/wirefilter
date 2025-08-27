@@ -702,5 +702,5 @@ fn test_unresolvable_function() {
     let ctx = ExecutionContext::<'_, ()>::new(&scheme);
 
     let res = scheme.parse("never()").unwrap().compile().execute(&ctx);
-    assert_eq!(res, Ok(Err(Type::Bool)))
+    assert_eq!(res, Ok(None))
 }

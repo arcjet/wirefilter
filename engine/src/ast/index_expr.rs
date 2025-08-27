@@ -162,45 +162,33 @@ impl IndexExpr {
                         call.execute(ctx).map(
                             #[inline]
                             |val| comp.compare(&val, ctx),
-                        )
+                        ).ok()
                     })
                 } else {
                     CompiledOneExpr::new(move |ctx| {
-                        let val = call.execute(ctx)?;
-                        let res = val.get_nested(&indexes)
+                        let val = call.execute(ctx).ok()?;
+                        val.get_nested(&indexes)
                             .map(
                                 #[inline]
                                 |val| comp.compare(val, ctx),
-                            );
-                        match res {
-                            Some(value) => Ok(value),
-                            None => Err(Type::Bool)
-                        }
+                            )
                     })
                 }
             }
             IdentifierExpr::Field(f) => {
                 if indexes.is_empty() {
                     CompiledOneExpr::new(move |ctx| {
-                        let res = ctx.get_field_value_unchecked(&f)
-                            .map(|value| comp.compare(value, ctx));
-                            match res {
-                                Some(value) => Ok(value),
-                                None => Err(Type::Bool)
-                            }
+                        ctx.get_field_value_unchecked(&f)
+                            .map(|value| comp.compare(value, ctx))
                     })
                 } else {
                     CompiledOneExpr::new(move |ctx| {
-                        let res = ctx.get_field_value_unchecked(&f)
+                        ctx.get_field_value_unchecked(&f)
                             .and_then(|value| value.get_nested(&indexes))
                             .map(
                                 #[inline]
                                 |val| comp.compare(val, ctx),
-                            );
-                            match res {
-                                Some(value) => Ok(value),
-                                None => Err(Type::Bool)
-                            }
+                            )
                     })
                 }
             }

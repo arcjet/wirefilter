@@ -75,8 +75,8 @@ impl ValueExpr for FunctionCallArgExpr {
                 match compiled_expr {
                     CompiledExpr::One(expr) => {
                         CompiledValueExpr::new(move |ctx| match expr.execute(ctx) {
-                            Ok(val) => LhsValue::from(val).into(),
-                            Err(typ) => Err(typ)
+                            Some(val) => LhsValue::from(val).into(),
+                            None => Err(Type::Bool),
                         })
                     }
                     CompiledExpr::Vec(expr) => CompiledValueExpr::new(move |ctx| {

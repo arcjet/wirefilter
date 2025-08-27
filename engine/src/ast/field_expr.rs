@@ -924,10 +924,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("ssl"), true).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ssl"), false).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -962,25 +962,25 @@ mod tests {
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(
             field("ip.addr"),
             IpAddr::from([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]),
         )
         .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(
             field("ip.addr"),
             IpAddr::from([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x81]),
         )
         .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1077,11 +1077,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1113,10 +1113,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 443).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1153,25 +1153,25 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 8080).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 443).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2081).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 2082).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2083).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2084).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1209,15 +1209,15 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.net")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1258,23 +1258,23 @@ mod tests {
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 3]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([255, 255, 255, 255]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 2]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1304,11 +1304,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "abc.net.au")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1338,11 +1338,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1374,10 +1374,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 8080).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1399,12 +1399,12 @@ mod tests {
         let cookies = Array::from_iter(["abc"]);
 
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         let cookies = Array::from_iter(["def"]);
 
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1442,7 +1442,7 @@ mod tests {
         });
 
         ctx.set_field_value(field("http.headers"), headers).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         let headers = LhsValue::from({
             let mut map = TypedMap::new();
@@ -1451,7 +1451,7 @@ mod tests {
         });
 
         ctx.set_field_value(field("http.headers"), headers).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1503,11 +1503,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1559,11 +1559,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "EXAMPLE.COM")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "EXAMPLE.ORG")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1599,7 +1599,7 @@ mod tests {
 
         ctx.set_field_value(field("http.cookies"), Array::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Err(Type::Bool));
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1635,7 +1635,7 @@ mod tests {
 
         ctx.set_field_value(field("http.cookies"), Array::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Err(Type::Bool));
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1671,7 +1671,7 @@ mod tests {
 
         ctx.set_field_value(field("http.headers"), Map::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Err(Type::Bool));
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1707,7 +1707,7 @@ mod tests {
 
         ctx.set_field_value(field("http.headers"), Map::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Err(Type::Bool));
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1759,11 +1759,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.co.uk")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         let expr = assert_ok!(
             FilterParser::new(&SCHEME).lex_as(r#"concat(http.host, ".org") == "example.org""#),
@@ -1820,11 +1820,11 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "example").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "cloudflare")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1900,7 +1900,7 @@ mod tests {
         ctx.set_field_value(field("array.of.bool"), booleans)
             .unwrap();
 
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1968,7 +1968,7 @@ mod tests {
         let cookies = Array::from_iter(["one", "two", "three"]);
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
 
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2044,7 +2044,7 @@ mod tests {
         });
         ctx.set_field_value(field("http.headers"), headers).unwrap();
 
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2373,10 +2373,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 1000).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 1001).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // ODD list
         let expr = assert_ok!(
@@ -2396,10 +2396,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 1000).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 1001).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         let json = serde_json::to_string(ctx).unwrap();
         assert_eq!(json, "{\"tcp.port\":1001,\"$lists\":[]}");
@@ -2468,13 +2468,13 @@ mod tests {
         let arr1 = Array::from_iter([1001, 1000]);
 
         ctx.set_field_value(field("tcp.ports"), arr1).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         // All odd numbers
         let arr2 = Array::from_iter([1001, 1003]);
 
         ctx.set_field_value(field("tcp.ports"), arr2).unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -2637,10 +2637,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "ab").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "cd").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Matches operator
         let parser = FilterParser::new(&SCHEME);
@@ -2669,10 +2669,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "axb").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "axc").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Wildcard operator
         let wildcard = Wildcard::new(
@@ -2704,19 +2704,19 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), r"foo*\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foo*").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foo\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"Foo*\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble*\")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble\")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Strict wildcard operator
         let wildcard = Wildcard::new(
@@ -2749,19 +2749,19 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), r"foo*\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foo*").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foo\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"Foo*\").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foobarmumble*\")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble\")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Function call
         let expr = assert_ok!(
@@ -2820,10 +2820,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "xx").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(false));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "ab").unwrap();
-        assert_eq!(expr.execute_one(ctx), Ok(true));
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2875,7 +2875,7 @@ mod tests {
 
             ctx.set_field_value(field("http.host"), value).unwrap();
 
-            assert_eq!(expr.execute_one(ctx), Ok(expected), "failed test case {t:?}");
+            assert_eq!(expr.execute_one(ctx), Some(expected), "failed test case {t:?}");
         }
     }
 
@@ -2917,172 +2917,172 @@ mod tests {
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 53 } => Ok(Ok(true)));
+        test_case!(filter { udp.dstport: 53 } => Ok(Some(true)));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.dstport != 80) and (udp.dstport != 80)")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.dstport: 443 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 53 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 53 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { udp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) or ((tcp.dstport != 80) or (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => Ok(Ok(true)));
+        test_case!(filter { udp.dstport: 444 } => Ok(Some(true)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) or (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) or ((tcp.dstport != 80) and (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) and (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { udp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 444 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) and ((tcp.flags.syn) or (udp.dstport != 80)))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Ok(true)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: false } => Ok(Err(Type::Bool)));
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: false } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: false } => Ok(Ok(false)));
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => Ok(Err(Type::Bool)));
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("tcp.flags.syn").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => Ok(Ok(true)));
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.flags.syn: false } => Ok(Ok(false)));
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not tcp.flags.syn").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => Ok(Ok(false)));
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.flags.syn: false } => Ok(Ok(true)));
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(true)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (not tcp.flags.syn)").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => Ok(Ok(true)));
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.flags.syn: false } => Ok(Ok(false)));
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (tcp.dstport eq 80)").unwrap().compile();
 
-        test_case!(filter { tcp.dstport: 80 } => Ok(Ok(false)));
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.dstport: 443 } => Ok(Ok(true)));
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (tcp.dstport ne 80)").unwrap().compile();
 
-        test_case!(filter { tcp.dstport: 80 } => Ok(Ok(true)));
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.dstport: 443 } => Ok(Ok(false)));
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter {} => Ok(Err(Type::Bool)));
+        test_case!(filter {} => Ok(None));
     }
 }

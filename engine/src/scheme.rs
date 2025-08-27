@@ -1863,11 +1863,11 @@ fn test_nil_behavior() {
 
     let filter = scheme.parse("arr[0] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(Err(Type::Bool)));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
     let filter = scheme.parse("map[\"\"] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(Err(Type::Bool)));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
     let builder = Scheme! {
         arr: Array(Bytes),
@@ -1885,9 +1885,9 @@ fn test_nil_behavior() {
 
     let filter = scheme.parse("arr[0] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(Err(Type::Bool)));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
     let filter = scheme.parse("map[\"\"] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(Err(Type::Bool)));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 }

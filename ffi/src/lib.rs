@@ -696,11 +696,11 @@ pub extern "C" fn wirefilter_match(
     match catch_panic(std::panic::AssertUnwindSafe(|| {
         filter.execute(exec_context)
     })) {
-        Ok(Ok(Ok(matched))) => MatchingResult {
+        Ok(Ok(Some(matched))) => MatchingResult {
             status: Status::Success,
             matched,
         },
-        Ok(Ok(Err(_))) => {
+        Ok(Ok(None)) => {
             write_last_error!("unresolvable expression");
             MatchingResult::ERROR
         }
