@@ -74,7 +74,10 @@ impl ValueExpr for FunctionCallArgExpr {
                 let compiled_expr = compiler.compile_logical_expr(logical_expr);
                 match compiled_expr {
                     CompiledExpr::One(expr) => {
-                        CompiledValueExpr::new(move |ctx| LhsValue::from(expr.execute(ctx)).into())
+                        CompiledValueExpr::new(move |ctx| match expr.execute(ctx) {
+                            Ok(val) => LhsValue::from(val).into(),
+                            Err(typ) => Err(typ)
+                        })
                     }
                     CompiledExpr::Vec(expr) => CompiledValueExpr::new(move |ctx| {
                         let result = expr.execute(ctx);
