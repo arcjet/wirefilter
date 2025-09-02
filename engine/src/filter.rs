@@ -13,8 +13,10 @@ use crate::{
 };
 use std::fmt;
 
+pub type CompiledFilterResult = Option<bool>;
+
 type BoxedClosureToOneBool<U> =
-    Box<dyn for<'e> Fn(&'e ExecutionContext<'e, U>) -> bool + Sync + Send + 'static>;
+    Box<dyn for<'e> Fn(&'e ExecutionContext<'e, U>) -> CompiledFilterResult + Sync + Send + 'static>;
 
 /// Boxed closure for [`crate::Expr`] AST node that evaluates to a simple [`bool`].
 pub struct CompiledOneExpr<U = ()>(BoxedClosureToOneBool<U>);
@@ -30,13 +32,13 @@ impl<U> fmt::Debug for CompiledOneExpr<U> {
 impl<U> CompiledOneExpr<U> {
     /// Creates a compiled expression IR from a generic closure.
     pub fn new(
-        closure: impl for<'e> Fn(&'e ExecutionContext<'e, U>) -> bool + Sync + Send + 'static,
+        closure: impl for<'e> Fn(&'e ExecutionContext<'e, U>) -> CompiledFilterResult + Sync + Send + 'static,
     ) -> Self {
         CompiledOneExpr(Box::new(closure))
     }
 
     /// Executes the closure against a provided context with values.
-    pub fn execute<'e>(&self, ctx: &'e ExecutionContext<'e, U>) -> bool {
+    pub fn execute<'e>(&self, ctx: &'e ExecutionContext<'e, U>) -> CompiledFilterResult {
         self.0(ctx)
     }
 
@@ -96,7 +98,7 @@ pub enum CompiledExpr<U = ()> {
 
 impl<U> CompiledExpr<U> {
     #[cfg(test)]
-    pub(crate) fn execute_one<'e>(&self, ctx: &'e ExecutionContext<'e, U>) -> bool {
+    pub(crate) fn execute_one<'e>(&self, ctx: &'e ExecutionContext<'e, U>) -> CompiledFilterResult {
         match self {
             CompiledExpr::One(one) => one.execute(ctx),
             CompiledExpr::Vec(_) => unreachable!(),
@@ -205,7 +207,7 @@ impl<U> Filter<U> {
     pub fn execute<'e>(
         &self,
         ctx: &'e ExecutionContext<'e, U>,
-    ) -> Result<bool, SchemeMismatchError> {
+    ) -> Result<CompiledFilterResult, SchemeMismatchError> {
         if ctx.scheme() == &self.scheme {
             Ok(self.root_expr.execute(ctx))
         } else {

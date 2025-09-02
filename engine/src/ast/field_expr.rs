@@ -5,7 +5,7 @@ use super::{
     visitor::{Visitor, VisitorMut},
 };
 use crate::{
-    ExecutionContext, Scheme,
+    ExecutionContext,
     ast::index_expr::{Compare, IndexExpr},
     compiler::Compiler,
     filter::CompiledExpr,
@@ -221,16 +221,6 @@ pub enum IdentifierExpr {
     FunctionCallExpr(FunctionCallExpr),
 }
 
-impl IdentifierExpr {
-    #[inline]
-    fn scheme(&self) -> &Scheme {
-        match self {
-            Self::Field(f) => f.scheme(),
-            Self::FunctionCallExpr(call) => call.function.scheme(),
-        }
-    }
-}
-
 impl<'i, 's> LexWith<'i, &FilterParser<'s>> for IdentifierExpr {
     fn lex_with(input: &'i str, parser: &FilterParser<'s>) -> LexResult<'i, Self> {
         let (item, input) = Identifier::lex_with(input, parser.scheme)?;
@@ -418,7 +408,6 @@ impl Expr for ComparisonExpr {
 
     fn compile_with_compiler<C: Compiler>(self, compiler: &mut C) -> CompiledExpr<C::U> {
         let lhs = self.lhs;
-        let nil_not_equal_behavior = lhs.identifier.scheme().nil_not_equal_behavior();
 
         match self.op {
             ComparisonOpExpr::IsTrue => {
@@ -436,7 +425,7 @@ impl Expr for ComparisonExpr {
                 }
 
                 if lhs.get_type() == Type::Bool {
-                    lhs.compile_with(compiler, false, IsTrue)
+                    lhs.compile_with(compiler, IsTrue)
                 } else if lhs.get_type().next() == Some(Type::Bool) {
                     // MapEach is impossible in this case, thus call `compile_vec_with` directly
                     // to coerce LhsValue to Vec<bool>
@@ -447,7 +436,7 @@ impl Expr for ComparisonExpr {
             }
             ComparisonOpExpr::Ordering { op, rhs } => {
                 macro_rules! gen_ordering {
-                    ($op:tt, $def:ident) => {
+                    ($op:tt) => {
                         match rhs {
                             RhsValue::Bytes(bytes) => {
                                 struct BytesOp(Bytes);
@@ -459,7 +448,7 @@ impl Expr for ComparisonExpr {
                                     }
                                 }
 
-                                lhs.compile_with(compiler, $def, BytesOp(bytes))
+                                lhs.compile_with(compiler, BytesOp(bytes))
                             }
                             RhsValue::Int(int) => {
                                 struct IntOp(i64);
@@ -471,7 +460,7 @@ impl Expr for ComparisonExpr {
                                     }
                                 }
 
-                                lhs.compile_with(compiler, $def, IntOp(int))
+                                lhs.compile_with(compiler, IntOp(int))
                             }
                             RhsValue::Ip(ip) => {
                                 struct IpOp {
@@ -486,7 +475,7 @@ impl Expr for ComparisonExpr {
                                     }
                                 }
 
-                                lhs.compile_with(compiler, $def, IpOp { op, ip })
+                                lhs.compile_with(compiler, IpOp { op, ip })
                             }
                             RhsValue::Bool(_) | RhsValue::Array(_) | RhsValue::Map(_) => unreachable!(),
                         }
@@ -494,12 +483,12 @@ impl Expr for ComparisonExpr {
                 }
 
                 match op {
-                    OrderingOp::NotEqual => gen_ordering!(!=, nil_not_equal_behavior),
-                    OrderingOp::Equal => gen_ordering!(==, false),
-                    OrderingOp::GreaterThanEqual => gen_ordering!(>=, false),
-                    OrderingOp::LessThanEqual => gen_ordering!(<=, false),
-                    OrderingOp::GreaterThan => gen_ordering!(>, false),
-                    OrderingOp::LessThan => gen_ordering!(<, false),
+                    OrderingOp::NotEqual => gen_ordering!(!=),
+                    OrderingOp::Equal => gen_ordering!(==),
+                    OrderingOp::GreaterThanEqual => gen_ordering!(>=),
+                    OrderingOp::LessThanEqual => gen_ordering!(<=),
+                    OrderingOp::GreaterThan => gen_ordering!(>),
+                    OrderingOp::LessThan => gen_ordering!(<),
                 }
             }
             ComparisonOpExpr::Int {
@@ -518,11 +507,11 @@ impl Expr for ComparisonExpr {
                         cast_value!(value, Int) & self.0 != 0
                     }
                 }
-                lhs.compile_with(compiler, false, BitwiseAnd(rhs))
+                lhs.compile_with(compiler, BitwiseAnd(rhs))
             }
             ComparisonOpExpr::Contains(bytes) => {
                 macro_rules! search {
-                    ($searcher:expr) => {{ lhs.compile_with(compiler, false, $searcher) }};
+                    ($searcher:expr) => {{ lhs.compile_with(compiler, $searcher) }};
                 }
 
                 let bytes: Box<[u8]> = bytes.into();
@@ -537,10 +526,10 @@ impl Expr for ComparisonExpr {
 
                 search!(TwoWaySearcher::new(bytes))
             }
-            ComparisonOpExpr::Matches(regex) => lhs.compile_with(compiler, false, regex),
-            ComparisonOpExpr::Wildcard(wildcard) => lhs.compile_with(compiler, false, wildcard),
+            ComparisonOpExpr::Matches(regex) => lhs.compile_with(compiler, regex),
+            ComparisonOpExpr::Wildcard(wildcard) => lhs.compile_with(compiler, wildcard),
             ComparisonOpExpr::StrictWildcard(wildcard) => {
-                lhs.compile_with(compiler, false, wildcard)
+                lhs.compile_with(compiler, wildcard)
             }
             ComparisonOpExpr::OneOf(values) => match values {
                 RhsValues::Ip(ranges) => {
@@ -574,7 +563,7 @@ impl Expr for ComparisonExpr {
                         }
                     }
 
-                    lhs.compile_with(compiler, false, OneOfIp { v4, v6 })
+                    lhs.compile_with(compiler, OneOfIp { v4, v6 })
                 }
                 RhsValues::Int(values) => {
                     let values: RangeSet<_> = values.into_iter().map(Into::into).collect();
@@ -592,7 +581,7 @@ impl Expr for ComparisonExpr {
                         }
                     }
 
-                    lhs.compile_with(compiler, false, OneOfInt(values))
+                    lhs.compile_with(compiler, OneOfInt(values))
                 }
                 RhsValues::Bytes(values) => {
                     let values: BTreeSet<Box<[u8]>> = values.into_iter().map(Into::into).collect();
@@ -610,7 +599,7 @@ impl Expr for ComparisonExpr {
                         }
                     }
 
-                    lhs.compile_with(compiler, false, Contains(values))
+                    lhs.compile_with(compiler, Contains(values))
                 }
                 RhsValues::Bool(_) => unreachable!(),
                 RhsValues::Map(_) => unreachable!(),
@@ -637,7 +626,7 @@ impl Expr for ComparisonExpr {
                     }
                 }
 
-                lhs.compile_with(compiler, false, InList { name, list })
+                lhs.compile_with(compiler, InList { name, list })
             }
         }
     }
@@ -935,10 +924,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("ssl"), true).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ssl"), false).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -973,25 +962,25 @@ mod tests {
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(
             field("ip.addr"),
             IpAddr::from([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x80]),
         )
         .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(
             field("ip.addr"),
             IpAddr::from([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x81]),
         )
         .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1088,11 +1077,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1124,10 +1113,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 443).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1164,25 +1153,25 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 8080).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 443).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2081).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 2082).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2083).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 2084).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1220,15 +1209,15 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.net")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1269,23 +1258,23 @@ mod tests {
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([127, 0, 0, 3]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([255, 255, 255, 255]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 1]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("ip.addr"), IpAddr::from([0, 0, 0, 0, 0, 0, 0, 2]))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1315,11 +1304,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "abc.net.au")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1349,11 +1338,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1385,10 +1374,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 80).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 8080).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1410,12 +1399,12 @@ mod tests {
         let cookies = Array::from_iter(["abc"]);
 
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         let cookies = Array::from_iter(["def"]);
 
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1453,7 +1442,7 @@ mod tests {
         });
 
         ctx.set_field_value(field("http.headers"), headers).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         let headers = LhsValue::from({
             let mut map = TypedMap::new();
@@ -1462,7 +1451,7 @@ mod tests {
         });
 
         ctx.set_field_value(field("http.headers"), headers).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1514,11 +1503,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.com")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1570,11 +1559,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "EXAMPLE.COM")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "EXAMPLE.ORG")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1610,7 +1599,7 @@ mod tests {
 
         ctx.set_field_value(field("http.cookies"), Array::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1646,7 +1635,7 @@ mod tests {
 
         ctx.set_field_value(field("http.cookies"), Array::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1682,7 +1671,7 @@ mod tests {
 
         ctx.set_field_value(field("http.headers"), Map::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1718,7 +1707,7 @@ mod tests {
 
         ctx.set_field_value(field("http.headers"), Map::new(Type::Bytes))
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), None);
     }
 
     #[test]
@@ -1770,11 +1759,11 @@ mod tests {
 
         ctx.set_field_value(field("http.host"), "example.org")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "example.co.uk")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         let expr = assert_ok!(
             FilterParser::new(&SCHEME).lex_as(r#"concat(http.host, ".org") == "example.org""#),
@@ -1831,11 +1820,11 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "example").unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "cloudflare")
             .unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -1911,7 +1900,7 @@ mod tests {
         ctx.set_field_value(field("array.of.bool"), booleans)
             .unwrap();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -1979,7 +1968,7 @@ mod tests {
         let cookies = Array::from_iter(["one", "two", "three"]);
         ctx.set_field_value(field("http.cookies"), cookies).unwrap();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2055,7 +2044,7 @@ mod tests {
         });
         ctx.set_field_value(field("http.headers"), headers).unwrap();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2384,10 +2373,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 1000).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("tcp.port"), 1001).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // ODD list
         let expr = assert_ok!(
@@ -2407,10 +2396,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("tcp.port"), 1000).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("tcp.port"), 1001).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         let json = serde_json::to_string(ctx).unwrap();
         assert_eq!(json, "{\"tcp.port\":1001,\"$lists\":[]}");
@@ -2479,13 +2468,13 @@ mod tests {
         let arr1 = Array::from_iter([1001, 1000]);
 
         ctx.set_field_value(field("tcp.ports"), arr1).unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         // All odd numbers
         let arr2 = Array::from_iter([1001, 1003]);
 
         ctx.set_field_value(field("tcp.ports"), arr2).unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     #[test]
@@ -2648,10 +2637,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "ab").unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "cd").unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Matches operator
         let parser = FilterParser::new(&SCHEME);
@@ -2680,10 +2669,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "axb").unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
 
         ctx.set_field_value(field("http.host"), "axc").unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Wildcard operator
         let wildcard = Wildcard::new(
@@ -2715,19 +2704,19 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), r"foo*\").unwrap();
-        assert!(expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foo*").unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foo\").unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"Foo*\").unwrap();
-        assert!(expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble*\")
             .unwrap();
-        assert!(expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble\")
             .unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Strict wildcard operator
         let wildcard = Wildcard::new(
@@ -2760,19 +2749,19 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), r"foo*\").unwrap();
-        assert!(expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foo*").unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foo\").unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"Foo*\").unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
         ctx.set_field_value(field("http.host"), r"foobarmumble*\")
             .unwrap();
-        assert!(expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(true));
         ctx.set_field_value(field("http.host"), r"foobarmumble\")
             .unwrap();
-        assert!(!expr.execute_one(ctx));
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         // Function call
         let expr = assert_ok!(
@@ -2831,10 +2820,10 @@ mod tests {
         let ctx = &mut ExecutionContext::new(&SCHEME);
 
         ctx.set_field_value(field("http.host"), "xx").unwrap();
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
 
         ctx.set_field_value(field("http.host"), "ab").unwrap();
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     #[test]
@@ -2886,7 +2875,7 @@ mod tests {
 
             ctx.set_field_value(field("http.host"), value).unwrap();
 
-            assert_eq!(expr.execute_one(ctx), expected, "failed test case {t:?}");
+            assert_eq!(expr.execute_one(ctx), Some(expected), "failed test case {t:?}");
         }
     }
 
@@ -2908,18 +2897,18 @@ mod tests {
         builder
             .add_optional_field("udp.dstport", Type::Int)
             .unwrap();
-        builder.set_nil_not_equal_behavior(false);
+
         let scheme = builder.build();
 
         macro_rules! test_case {
-            ($filter:ident {$($name:ident $(. $suffix:ident)*: $value:literal),*} => $outcome:literal) => {{
+            ($filter:ident {$($name:ident $(. $suffix:ident)*: $value:literal),*} => $outcome:expr) => {{
                 #[allow(unused_mut)]
                 let mut ctx = ExecutionContext::<()>::new(&scheme);
                 $(
                     ctx.set_field_value(scheme.get_field(stringify!($name $(. $suffix)*)).unwrap(), $value).unwrap();
                 )*
 
-                assert_eq!($filter.execute(&ctx), Ok($outcome));
+                assert_eq!($filter.execute(&ctx), $outcome);
             }};
         }
 
@@ -2928,172 +2917,172 @@ mod tests {
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 53 } => true);
+        test_case!(filter { udp.dstport: 53 } => Ok(Some(true)));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.dstport != 80) and (udp.dstport != 80)")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 53 } => false);
+        test_case!(filter { udp.dstport: 53 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) or ((tcp.dstport != 80) or (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => true);
+        test_case!(filter { udp.dstport: 444 } => Ok(Some(true)));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) or (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => false);
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) or ((tcp.dstport != 80) and (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => false);
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) and (udp.dstport != 80))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443 } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 444 } => false);
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme
             .parse("(tcp.srcport == 1337) and ((tcp.dstport != 80) and ((tcp.flags.syn) or (udp.dstport != 80)))")
             .unwrap()
             .compile();
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: true } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: true } => true);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: true } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: true } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.srcport: 1337, tcp.dstport: 443, tcp.flags.syn: false } => Ok(None));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 80, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.srcport: 1234, tcp.dstport: 443, tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter { udp.dstport: 80 } => false);
+        test_case!(filter { udp.dstport: 80 } => Ok(None));
 
-        test_case!(filter { udp.dstport: 444 } => false);
+        test_case!(filter { udp.dstport: 444 } => Ok(None));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("tcp.flags.syn").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => true);
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not tcp.flags.syn").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => false);
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(false)));
 
-        test_case!(filter { tcp.flags.syn: false } => true);
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(true)));
 
-        test_case!(filter {} => true);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (not tcp.flags.syn)").unwrap().compile();
 
-        test_case!(filter { tcp.flags.syn: true } => true);
+        test_case!(filter { tcp.flags.syn: true } => Ok(Some(true)));
 
-        test_case!(filter { tcp.flags.syn: false } => false);
+        test_case!(filter { tcp.flags.syn: false } => Ok(Some(false)));
 
-        test_case!(filter {} => false);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (tcp.dstport eq 80)").unwrap().compile();
 
-        test_case!(filter { tcp.dstport: 80 } => false);
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(false)));
 
-        test_case!(filter { tcp.dstport: 443 } => true);
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(true)));
 
-        test_case!(filter {} => true);
+        test_case!(filter {} => Ok(None));
 
         let filter = scheme.parse("not (tcp.dstport ne 80)").unwrap().compile();
 
-        test_case!(filter { tcp.dstport: 80 } => true);
+        test_case!(filter { tcp.dstport: 80 } => Ok(Some(true)));
 
-        test_case!(filter { tcp.dstport: 443 } => false);
+        test_case!(filter { tcp.dstport: 443 } => Ok(Some(false)));
 
-        test_case!(filter {} => true);
+        test_case!(filter {} => Ok(None));
     }
 }

@@ -147,7 +147,6 @@ impl IndexExpr {
     fn compile_one_with<C: Compiler>(
         self,
         compiler: &mut C,
-        default: bool,
         comp: impl Compare<C::U>,
     ) -> CompiledOneExpr<C::U> {
         let Self {
@@ -160,18 +159,16 @@ impl IndexExpr {
                 let call = compiler.compile_function_call_expr(call);
                 if indexes.is_empty() {
                     CompiledOneExpr::new(move |ctx| {
-                        call.execute(ctx).map_or(
-                            default,
+                        call.execute(ctx).map(
                             #[inline]
                             |val| comp.compare(&val, ctx),
-                        )
+                        ).ok()
                     })
                 } else {
                     CompiledOneExpr::new(move |ctx| {
-                        ok_ref(&call.execute(ctx))
-                            .and_then(|val| val.get_nested(&indexes))
-                            .map_or(
-                                default,
+                        let val = call.execute(ctx).ok()?;
+                        val.get_nested(&indexes)
+                            .map(
                                 #[inline]
                                 |val| comp.compare(val, ctx),
                             )
@@ -183,14 +180,12 @@ impl IndexExpr {
                     CompiledOneExpr::new(move |ctx| {
                         ctx.get_field_value_unchecked(&f)
                             .map(|value| comp.compare(value, ctx))
-                            .unwrap_or(default)
                     })
                 } else {
                     CompiledOneExpr::new(move |ctx| {
                         ctx.get_field_value_unchecked(&f)
                             .and_then(|value| value.get_nested(&indexes))
-                            .map_or(
-                                default,
+                            .map(
                                 #[inline]
                                 |val| comp.compare(val, ctx),
                             )
@@ -287,11 +282,10 @@ impl IndexExpr {
     pub fn compile_with<C: Compiler>(
         self,
         compiler: &mut C,
-        default: bool,
         comp: impl Compare<C::U>,
     ) -> CompiledExpr<C::U> {
         match self.map_each_count() {
-            0 => CompiledExpr::One(self.compile_one_with(compiler, default, comp)),
+            0 => CompiledExpr::One(self.compile_one_with(compiler, comp)),
             1 if self.indexes.last() == Some(&FieldIndex::MapEach) => {
                 CompiledExpr::Vec(self.compile_vec_with(compiler, comp))
             }

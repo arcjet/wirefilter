@@ -11,6 +11,7 @@ use crate::{
     types::{GetType, Type, TypeMismatchError},
 };
 use serde::Serialize;
+use std::iter::once;
 
 lex_enum!(
     /// LogicalOp is an operator for a [`LogicalExpr`]. Its ordering is defined
@@ -225,7 +226,7 @@ impl Expr for LogicalExpr {
                 let arg = compiler.compile_logical_expr(*arg);
                 match arg {
                     CompiledExpr::One(one) => {
-                        CompiledExpr::One(CompiledOneExpr::new(move |ctx| !one.execute(ctx)))
+                        CompiledExpr::One(CompiledOneExpr::new(move |ctx| one.execute(ctx).map(|val| !val)))
                     }
                     CompiledExpr::Vec(vec) => CompiledExpr::Vec(CompiledVecExpr::new(move |ctx| {
                         vec.execute(ctx).iter().map(|item| !item).collect()
@@ -247,15 +248,36 @@ impl Expr for LogicalExpr {
                             .into_boxed_slice();
                         match op {
                             LogicalOp::And => CompiledExpr::One(CompiledOneExpr::new(move |ctx| {
-                                first.execute(ctx) && items.iter().all(|item| item.execute(ctx))
+                                let mut value = Some(true);
+                                for item in once(&first).chain(items.iter()) {
+                                    match item.execute(ctx) {
+                                        Some(true) => continue,
+                                        Some(false) => return Some(false),
+                                        None => value = None
+                                    }
+                                }
+                                value
                             })),
                             LogicalOp::Or => CompiledExpr::One(CompiledOneExpr::new(move |ctx| {
-                                first.execute(ctx) || items.iter().any(|item| item.execute(ctx))
+                                let mut value = Some(false);
+                                for item in once(&first).chain(items.iter()) {
+                                    match item.execute(ctx) {
+                                        Some(true) => return Some(true),
+                                        Some(false) => continue,
+                                        None => value = None
+                                    }
+                                }
+                                value
                             })),
                             LogicalOp::Xor => CompiledExpr::One(CompiledOneExpr::new(move |ctx| {
                                 items
                                     .iter()
-                                    .fold(first.execute(ctx), |acc, item| acc ^ item.execute(ctx))
+                                    .fold(first.execute(ctx), |acc, item| {
+                                        match acc {
+                                            None => None,
+                                            Some(acc) => Some(acc ^ item.execute(ctx)?)
+                                        }
+                                    })
                             })),
                         }
                     }
@@ -393,7 +415,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     {
@@ -424,7 +446,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     {
@@ -455,7 +477,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     {
@@ -469,7 +491,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     {
@@ -500,7 +522,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     {
@@ -514,7 +536,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     {
@@ -528,7 +550,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     assert_ok!(
@@ -673,7 +695,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     {
@@ -750,7 +772,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     {
@@ -796,7 +818,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 
     assert_ok!(FilterParser::new(scheme).lex_as("!t"), not_expr(t_expr()));
@@ -847,7 +869,7 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), true);
+        assert_eq!(expr.execute_one(ctx), Some(true));
     }
 
     assert_ok!(
@@ -916,6 +938,6 @@ fn test() {
 
         let expr = expr.compile();
 
-        assert_eq!(expr.execute_one(ctx), false);
+        assert_eq!(expr.execute_one(ctx), Some(false));
     }
 }

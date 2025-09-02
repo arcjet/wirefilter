@@ -638,8 +638,6 @@ pub struct SchemeBuilder {
 
     list_types: HashMap<Type, usize, FnvBuildHasher>,
     lists: Vec<(Type, Box<dyn ListDefinition>)>,
-
-    nil_not_equal_is_false: bool,
 }
 
 impl SchemeBuilder {
@@ -734,15 +732,6 @@ impl SchemeBuilder {
                 Ok(())
             }
         }
-    }
-
-    /// Configures the behavior of not equal comparison against a nil value.
-    ///
-    /// Default behavior is to return `true` for `nil != <value>`.
-    /// By calling this method with `false`, this behavior can be
-    /// changed so that `nil != <value>` returns `false` instead.
-    pub fn set_nil_not_equal_behavior(&mut self, behavior: bool) {
-        self.nil_not_equal_is_false = !behavior;
     }
 
     /// Build a new [`Scheme`] from this builder.
@@ -957,11 +946,6 @@ impl<'s> Scheme {
             scheme: self,
             index,
         })
-    }
-
-    #[inline]
-    pub(crate) fn nil_not_equal_behavior(&self) -> bool {
-        !self.inner.nil_not_equal_is_false
     }
 }
 
@@ -1861,7 +1845,7 @@ fn test_scheme_json_serialization() {
 }
 
 #[test]
-fn test_nil_not_equal_behavior_true() {
+fn test_nil_behavior() {
     use crate::{Array, ExecutionContext, Map};
 
     let scheme = Scheme! {
@@ -1879,19 +1863,16 @@ fn test_nil_not_equal_behavior_true() {
 
     let filter = scheme.parse("arr[0] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(true));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
     let filter = scheme.parse("map[\"\"] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(true));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
-    let mut builder = Scheme! {
+    let builder = Scheme! {
         arr: Array(Bytes),
         map: Map(Bytes)
     };
-
-    // Set `nil_not_equal_behavior` to default value of `true`.
-    builder.set_nil_not_equal_behavior(true);
 
     let scheme = builder.build();
 
@@ -1904,38 +1885,9 @@ fn test_nil_not_equal_behavior_true() {
 
     let filter = scheme.parse("arr[0] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(true));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 
     let filter = scheme.parse("map[\"\"] != \"\"").unwrap().compile();
 
-    assert_eq!(filter.execute(&ctx), Ok(true));
-}
-
-#[test]
-fn test_nil_not_equal_behavior_false() {
-    use crate::{Array, ExecutionContext, Map};
-
-    let mut builder = Scheme! {
-        arr: Array(Bytes),
-        map: Map(Bytes)
-    };
-
-    builder.set_nil_not_equal_behavior(false);
-
-    let scheme = builder.build();
-
-    let mut ctx = ExecutionContext::<()>::new(&scheme);
-
-    ctx.set_field_value(scheme.get_field("arr").unwrap(), Array::new(Type::Bytes))
-        .unwrap();
-    ctx.set_field_value(scheme.get_field("map").unwrap(), Map::new(Type::Bytes))
-        .unwrap();
-
-    let filter = scheme.parse("arr[0] != \"\"").unwrap().compile();
-
-    assert_eq!(filter.execute(&ctx), Ok(false));
-
-    let filter = scheme.parse("map[\"\"] != \"\"").unwrap().compile();
-
-    assert_eq!(filter.execute(&ctx), Ok(false));
+    assert_eq!(filter.execute(&ctx), Ok(None));
 }
